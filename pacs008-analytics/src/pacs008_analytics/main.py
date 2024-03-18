@@ -18,22 +18,25 @@ async def pacs008_analytics(request: Request):
 
     transactions = []
 
-    for tx in pacs008_data['FIToFICstmrCdtTrf']['CdtTrfTxInf']:
-        amt = tx['Amt']['InstdAmt']
-        transaction = defaultdict(str)
-        transaction['Amount'] = float(amt[''])
-        transaction['Currency'] = amt['Ccy']
-        transactions.append(transaction)
+    for payment in pacs008_data:
+        for tx in payment['FIToFICstmrCdtTrf']['CdtTrfTxInf']:
+            amt = tx['Amt']['InstdAmt']
+            transaction = defaultdict(str)
+            transaction['Amount'] = float(amt[''])
+            transaction['Currency'] = amt['Ccy']
+            transactions.append(transaction)
 
     pacs008_df = pd.DataFrame(transactions)
 
-    total_amount = pacs008_df[pacs008_df['Currency'] == 'EUR']['Amount'].sum()
-    currency_counts = pacs008_df['Currency'].value_counts()
-    max_amount = pacs008_df[pacs008_df['Currency'] == 'EUR']['Amount'].max()
-    min_amount = pacs008_df[pacs008_df['Currency'] == 'EUR']['Amount'].min()
+    total_amount = analytics_results.get('total_amount', 0) + pacs008_df[pacs008_df['Currency'] == 'EUR']['Amount'].sum()
+    currency_counts = analytics_results.get('currency_counts', {})
+    for currency, count in pacs008_df['Currency'].value_counts().items():
+        currency_counts[currency] = currency_counts.get(currency, 0) + count
+    max_amount = max(analytics_results.get('max_amount', 0), pacs008_df[pacs008_df['Currency'] == 'EUR']['Amount'].max())
+    min_amount = min(analytics_results.get('min_amount', float('inf')), pacs008_df[pacs008_df['Currency'] == 'EUR']['Amount'].min())
 
     analytics_results['total_amount'] = total_amount
-    analytics_results['currency_counts'] = currency_counts.to_dict()
+    analytics_results['currency_counts'] = currency_counts
     analytics_results['max_amount'] = max_amount
     analytics_results['min_amount'] = min_amount
 
